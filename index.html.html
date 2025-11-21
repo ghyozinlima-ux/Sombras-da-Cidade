@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sombras da Cidade - Jogo de Detetive</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Georgia", serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #fff;
+      overflow: hidden;
+      height: 100vh;
+    }
+    #game-container {
+      width: 100%;
+      height: 100vh;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* TELA INICIAL */
+    #start-screen {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      animation: fadeIn 1s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .game-title {
+      font-size: 3.2em;
+      text-align: center;
+      margin-bottom: 15px;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+      animation: glow 2s ease-in-out infinite;
+    }
+    @keyframes glow {
+      0%,100% { text-shadow: 0 0 20px rgba(255, 215, 0, 0.4); }
+      50%     { text-shadow: 0 0 40px rgba(255, 215, 0, 0.9); }
+    }
+    .game-subtitle {
+      font-size: 1.4em;
+      color: #ffd700;
+      margin-bottom: 40px;
+      text-align: center;
+    }
+    .start-button,
+    .reset-button {
+      padding: 18px 60px;
+      font-size: 1.2em;
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s;
+      margin: 10px;
+    }
+    .start-button {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #1a1a2e;
+    }
+    .reset-button {
+      background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+      color: #fff;
+      font-size: 1em;
+      padding: 12px 40px;
+    }
+    .start-button:hover,
+    .reset-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6);
+    }
+
+    /* HUD */
+    #hud {
+      display: none;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 12px 20px;
+      border-bottom: 2px solid #ffd700;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    .hud-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95em;
+    }
+    .hud-label { color: #ffd700; font-weight: bold; }
+    .hud-value {
+      background: rgba(255, 215, 0, 0.15);
+      border: 1px solid #ffd700;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    /* ÁREA DO JOGO */
+    #game-area {
+      display: none;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #scene {
+      flex: 1;
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+      position: relative;
+    }
+    .scene-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.3);
+    }
+    .scene-title {
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 25px;
+      border-radius: 10px;
+      border: 2px solid #ffd700;
+      background: rgba(0, 0, 0, 0.8);
+      color: #ffd700;
+      font-size: 1.1em;
+      text-align: center;
+    }
+    .npc {
+      position: absolute;
+      width: 95px;
+      height: 140px;
+      border-radius: 10px;
+      border: 3px solid #ffd700;
+      background: rgba(255, 215, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-8px); }
+    }
+    .npc:hover {
+      transform: scale(1.06);
+      box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
+    }
+    .npc.interrogated {
+      border-color: #00ff7f;
+      background: rgba(0, 255, 127, 0.18);
+    }
+    .npc-icon { font-size: 2.4em; }
+    .npc-name {
+      margin-top: 6px;
+      font-size: 0.8em;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    /* DIÁLOGO */
+    #dialogue-box {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.95);
+      border-top: 3px solid #ffd700;
+      padding: 20px;
+      transform: translateY(100%);
+      transition: transform 0.4s ease;
+      max-height: 45vh;
+      overflow-y: auto;
+    }
+    #dialogue-box.active { transform: translateY(0); }
+    .dialogue-speaker { color: #ffd700; font-weight: bold; margin-bottom: 8px; }
+    .dialogue-text { font-size: 1.05em; line-height: 1.6; margin-bottom: 14px; }
+    .dialogue-choices {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .choice-button {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 2px solid #ffd700;
+      background: rgba(255, 215, 0, 0.12);
+      color: #fff;
+      font-size: 0.95em;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+    .choice-button:hover {
+      background: rgba(255, 215, 0, 0.3);
+      transform: translateX(6px);
+    }
+
+    /* PISTAS */
+    #clues-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 300px;
+      background: rgba(0, 0, 0, 0.96);
+      border-left: 3px solid #ffd700;
+      padding: 15px;
+      overflow-y: auto;
+      transform: translateX(100%);
+      transition: transform 0.4s ease;
+    }
+    #clues-panel.active { transform: translateX(0); }
+    .clues-title {
+      color: #ffd700;
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #ffd700;
+    }
+    .clue-item {
+      border-radius: 8px;
+      border: 1px solid #ffd700;
+      background: rgba(255, 215, 0, 0.08);
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .clue-icon { font-size: 1.5em; margin-bottom: 5px; }
+    .clue-text { font-size: 0.9em; line-height: 1.4; }
+    #toggle-clues {
+      position: absolute;
+      top: 50%;
+      right: 300px;
+      transform: translateY(-50%);
+      padding: 10px 14px;
+      border-radius: 10px 0 0 10px;
+      border: none;
+      background: rgba(255, 215, 0, 0.9);
+      color: #1a1a2e;
+      cursor: pointer;
+      font-weight: bold;
+      z-index: 5;
+      transition: all 0.25s;
+    }
+    #toggle-clues:hover { background: #ffd700; }
+
+    .notification {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 215, 0, 0.96);
+      color: #1a1a2e;
+      padding: 12px 25px;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 1em;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      animation: notify 3s ease;
+      z-index: 20;
+    }
+    @keyframes notify {
+      0%   { opacity: 0; transform: translate(-50%, -20px); }
+      10%,90% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -20px); }
+    }
+
+    /* FIM DE CASO */
+    #case-end-screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      z-index: 15;
+      text-align: center;
+      padding: 20px;
+    }
+    .case-end-title {
+      font-size: 2.2em;
+      color: #ffd700;
+      margin-bottom: 15px;
+    }
+    .case-end-text {
+      max-width: 700px;
+      line-height: 1.7;
+      margin-bottom: 25px;
+    }
+    .next-case-button {
+      padding: 14px 40px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #1a1a2e;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 1.1em;
+      transition: all 0.25s;
+    }
+    .next-case-button:hover { transform: scale(1.05); }
+
+    @media (max-width: 768px) {
+      .game-title { font-size: 2.3em; }
+      #clues-panel {
+        width: 100%;
+        height: 45vh;
+        top: auto;
+        transform: translateY(100%);
+        border-left: none;
+        border-top: 3px solid #ffd700;
+      }
+      #clues-panel.active { transform: translateY(0); }
+      #toggle-clues {
+        right: 15px;
+        top: auto;
+        bottom: 15px;
+        transform: none;
+        border-radius: 10px;
+      }
+      .scene-title { font-size: 0.95em; }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <!-- TELA INICIAL -->
+    <div id="start-screen">
+      <h1 class="game-title">🕵️ SOMBRAS DA CIDADE 🕵️</h1>
+      <p class="game-subtitle">Mistérios de Assassinato</p>
+      <button class="start-button" onclick="startGame()">NOVO JOGO</button>
+      <button class="reset-button" onclick="resetProgress()">RESETAR PROGRESSO</button>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-item">
+        <span class="hud-label">🎯 Missão:</span>
+        <span class="hud-value" id="mission-text">Investigar o crime</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">🔍 Pistas:</span>
+        <span class="hud-value" id="clues-count">0/7</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">⭐ Pontos:</span>
+        <span class="hud-value" id="score">0</span>
+      </div>
+    </div>
+
+    <!-- ÁREA DO JOGO -->
+    <div id="game-area">
+      <div id="scene">
+        <div class="scene-overlay"></div>
+        <div class="scene-title" id="scene-title"></div>
+      </div>
+
+      <button id="toggle-clues" onclick="toggleClues()">📋 PISTAS</button>
+
+      <div id="clues-panel">
+        <div class="clues-title">Pistas coletadas</div>
+        <div id="clues-list"></div>
+      </div>
+
+      <div id="dialogue-box">
+        <div class="dialogue-speaker" id="speaker-name"></div>
+        <div class="dialogue-text" id="dialogue-text"></div>
+        <div class="dialogue-choices" id="dialogue-choices"></div>
+      </div>
+    </div>
+
+    <!-- FIM DE CASO -->
+    <div id="case-end-screen">
+      <h2 class="case-end-title" id="case-end-title"></h2>
+      <p class="case-end-text" id="case-end-message"></p>
+      <button class="next-case-button" onclick="location.reload()">JOGAR NOVAMENTE</button>
+    </div>
+  </div>
+
+  <script>
+    // ---------- ESTADO ----------
+    let gameState = {
+      clues: [],
+      interrogated: [],
+      score: 0,
+      finished: false
+    };
+
+    function resetProgress() {
+      localStorage.removeItem("sombrasSave");
+      alert("Progresso apagado!");
+    }
+    function saveGame() {
+      localStorage.setItem("sombrasSave", JSON.stringify(gameState));
+    }
+    function loadGame() {
+      const data = localStorage.getItem("sombrasSave");
+      if (data) gameState = JSON.parse(data);
+    }
+
+    // ---------- DADOS DO CASO ----------
+    const caseData = {
+      title: "CASO 1: O Empresário Morto",
+      mission: "Descobrir quem matou Marcus Oliveira",
+      requiredClues: 7,
+      suspects: [
+        { name: "Ana Costa (Secretária)", correct: false },
+        { name: "Roberto Lima (Sócio)", correct: true },
+        { name: "Carla Mendes (Ex-esposa)", correct: false }
+      ],
+      solution:
+        "Roberto Lima era o assassino. Ele tinha o motivo mais forte: assumir controle total da empresa e vender por 50 milhões. Carla tinha álibi sólido e perdeu dinheiro com a morte. Ana não tinha motivo forte.",
+      npcs: [
+        {
+          id: "detective",
+          name: "Detetive Silva",
+          icon: "👮",
+          position: { left: "10%", top: "40%" },
+          dialogues: [
+            {
+              text:
+                "Bem-vindo, detetive. O empresário Marcus Oliveira foi encontrado morto em seu escritório. Envenenamento. Três suspeitos principais.",
+              choices: [
+                { text: "🔍 Quem são os suspeitos?", next: 1 },
+                { text: "⏰ Quando aconteceu?", next: 2 }
+              ]
+            },
+            {
+              text:
+                "Ana Costa (secretária), Roberto Lima (sócio) e Carla Mendes (ex-esposa). Todos tinham motivos.",
+              choices: [
+                {
+                  text: "✅ Vou investigar",
+                  action: "close",
+                  clue: {
+                    icon: "📝",
+                    text:
+                      "Três suspeitos: Ana (secretária), Roberto (sócio), Carla (ex-esposa)."
+                  }
+                }
+              ]
+            },
+            {
+              text:
+                "Morte às 22h. Última pessoa a vê-lo vivo: Ana, às 20h. Escritório trancado por dentro.",
+              choices: [
+                {
+                  text: "✅ Entendi",
+                  action: "close",
+                  clue: {
+                    icon: "⏰",
+                    text:
+                      "Morte às 22h por envenenamento. Escritório trancado por dentro."
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          id: "ana",
+          name: "Ana Costa",
+          icon: "👩‍💼",
+          position: { left: "35%", top: "35%" },
+          dialogues: [
+            {
+              text:
+                "Trabalhei com Marcus por 5 anos. Ele estava muito estressado ultimamente.",
+              choices: [
+                { text: "😰 Por que estava estressado?", next: 1 },
+                { text: "⏰ Quando saiu do escritório?", next: 2 }
+              ]
+            },
+            {
+              text:
+                "Estava sendo processado pela ex-esposa e o sócio pressionava para vender a empresa.",
+              choices: [
+                { text: "💰 Vender por quanto?", next: 3 }
+              ]
+            },
+            {
+              text:
+                "Saí às 20h. Ele estava trabalhando em documentos da empresa.",
+              choices: [
+                {
+                  text: "✅ Obrigado",
+                  action: "close",
+                  clue: {
+                    icon: "📄",
+                    text:
+                      "Ana saiu às 20h. Marcus estava revisando documentos da empresa."
+                  }
+                }
+              ]
+            },
+            {
+              text: "Roberto queria vender por 50 milhões. Marcus se recusava.",
+              choices: [
+                {
+                  text: "✅ Interessante",
+                  action: "close",
+                  clue: {
+                    icon: "⚖️",
+                    text:
+                      "Marcus estava sendo processado e pressionado a vender empresa por 50 milhões."
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          id: "roberto",
+          name: "Roberto Lima",
+          icon: "👨‍💼",
+          position: { left: "65%", top: "40%" },
+          dialogues: [
+            {
+              text:
+                "Marcus era meu sócio há 10 anos. Uma tragédia...",
+              choices: [
+                { text: "💼 Ouvi sobre divergências", next: 1 },
+                { text: "📍 Onde estava ontem?", next: 2 }
+              ]
+            },
+            {
+              text:
+                "Sim, eu queria vender. 50 milhões! Mas Marcus era teimoso. Agora... a decisão é minha.",
+              choices: [
+                { text: "🤨 Conveniente para você", next: 3 }
+              ]
+            },
+            {
+              text: "Estava em casa. Minha esposa confirma.",
+              choices: [
+                {
+                  text: "✅ Vou verificar",
+                  action: "close",
+                  clue: {
+                    icon: "🏠",
+                    text:
+                      "Roberto diz que estava em casa. Esposa como álibi."
+                  }
+                }
+              ]
+            },
+            {
+              text:
+                "Olha, eu tinha motivo financeiro, sim. Mas não matei ninguém!",
+              choices: [
+                {
+                  text: "✅ Veremos",
+                  action: "close",
+                  clue: {
+                    icon: "💰",
+                    text:
+                      "Roberto herda controle total e pode vender por 50 milhões com Marcus morto."
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          id: "carla",
+          name: "Carla Mendes",
+          icon: "👩",
+          position: { left: "25%", top: "60%" },
+          dialogues: [
+            {
+              text:
+                "Não vou fingir tristeza. Marcus me traiu e tentou me roubar no divórcio.",
+              choices: [
+                { text: "⚖️ Você estava processando?", next: 1 },
+                { text: "📍 Onde estava ontem?", next: 2 }
+              ]
+            },
+            {
+              text:
+                "Sim! Ele escondeu ativos. Íamos ganhar o processo e eu receberia milhões.",
+              choices: [
+                { text: "💭 E agora que ele morreu?", next: 3 }
+              ]
+            },
+            {
+              text:
+                "Jantar beneficente. Dezenas de testemunhas. Álibi perfeito.",
+              choices: [
+                {
+                  text: "✅ Vou confirmar",
+                  action: "close",
+                  clue: {
+                    icon: "🍽️",
+                    text:
+                      "Carla tem álibi sólido: jantar beneficente com muitas testemunhas."
+                  }
+                }
+              ]
+            },
+            {
+              text:
+                "Agora não ganho nada! O dinheiro vai para o sócio. Eu perco tudo.",
+              choices: [
+                {
+                  text: "🤔 Então não tinha motivo",
+                  action: "close",
+                  clue: {
+                    icon: "❌",
+                    text:
+                      "Carla perde o processo com a morte de Marcus. Não ganha nada."
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    };
+
+    // ---------- INICIAR JOGO ----------
+    function startGame() {
+      loadGame();
+      document.getElementById("start-screen").style.display = "none";
+      document.getElementById("hud").style.display = "flex";
+      document.getElementById("game-area").style.display = "flex";
+
+      document.getElementById("mission-text").textContent = caseData.mission;
+      document.getElementById("scene-title").textContent = caseData.title;
+      document.getElementById("score").textContent = gameState.score;
+      updateCluesCount();
+      renderClues();
+      loadNPCs();
+    }
+
+    // ---------- CENÁRIO / NPCs ----------
+    function loadNPCs() {
+      const scene = document.getElementById("scene");
+      scene.querySelectorAll(".npc").forEach((n) => n.remove());
+
+      caseData.npcs.forEach((npc) => {
+        const el = document.createElement("div");
+        el.className = "npc";
+        el.id = "npc-" + npc.id;
+        el.style.left = npc.position.left;
+        el.style.top = npc.position.top;
+        if (gameState.interrogated.includes(npc.id)) {
+          el.classList.add("interrogated");
+        }
+        el.innerHTML = `
+          <div class="npc-icon">${npc.icon}</div>
+          <div class="npc-name">${npc.name}</div>
+        `;
+        el.onclick = () => startDialogue(npc);
+        scene.appendChild(el);
+      });
+    }
+
+    // ---------- DIÁLOGO ----------
+    function startDialogue(npc) {
+      document.getElementById("dialogue-box").classList.add("active");
+      showDialogue(npc, 0);
+    }
+
+    function showDialogue(npc, index) {
+      const d = npc.dialogues[index];
+      document.getElementById("speaker-name").textContent = npc.name;
+      document.getElementById("dialogue-text").textContent = d.text;
+
+      const choicesDiv = document.getElementById("dialogue-choices");
+      choicesDiv.innerHTML = "";
+      d.choices.forEach((ch) => {
+        const btn = document.createElement("button");
+        btn.className = "choice-button";
+        btn.textContent = ch.text;
+        btn.onclick = () => {
+          if (ch.clue) addClue(ch.clue);
+          if (ch.action === "close") {
+            closeDialogue();
+            if (!gameState.interrogated.includes(npc.id)) {
+              gameState.interrogated.push(npc.id);
+              const el = document.getElementById("npc-" + npc.id);
+              if (el) el.classList.add("interrogated");
+              saveGame();
+            }
+          } else if (ch.next !== undefined) {
+            showDialogue(npc, ch.next);
+          }
+        };
+        choicesDiv.appendChild(btn);
+      });
+    }
+
+    function closeDialogue() {
+      document.getElementById("dialogue-box").classList.remove("active");
+    }
+
+    // ---------- PISTAS ----------
+    function addClue(clue) {
+      if (!gameState.clues.find((c) => c.text === clue.text)) {
+        gameState.clues.push(clue);
+        gameState.score += 100;
+        document.getElementById("score").textContent = gameState.score;
+        updateCluesCount();
+        renderClues();
+        showNotification("🔍 Nova pista coletada!");
+        saveGame();
+
+        if (
+          gameState.clues.length >= caseData.requiredClues &&
+          !gameState.finished
+        ) {
+          setTimeout(showAccusation, 1500);
+        }
+      }
+    }
+
+    function updateCluesCount() {
+      document.getElementById(
+        "clues-count"
+      ).textContent = `${gameState.clues.length}/${caseData.requiredClues}`;
+    }
+
+    function renderClues() {
+      const list = document.getElementById("clues-list");
+      if (gameState.clues.length === 0) {
+        list.innerHTML = `
+          <p style="text-align:center;color:#999;padding:10px;">
+            Nenhuma pista coletada ainda.<br>Fale com os suspeitos.
+          </p>`;
+        return;
+      }
+      list.innerHTML = gameState.clues
+        .map(
+          (c) => `
+        <div class="clue-item">
+          <div class="clue-icon">${c.icon}</div>
+          <div class="clue-text">${c.text}</div>
+        </div>`
+        )
+        .join("");
+    }
+
+    function toggleClues() {
+      document.getElementById("clues-panel").classList.toggle("active");
+    }
+
+    // ---------- NOTIFICAÇÃO ----------
+    function showNotification(msg) {
+      const n = document.createElement("div");
+      n.className = "notification";
+      n.textContent = msg;
+      document.getElementById("game-container").appendChild(n);
+      setTimeout(() => n.remove(), 3000);
+    }
+
+    // ---------- ACUSAÇÃO / FIM ----------
+    function showAccusation() {
+      document.getElementById("dialogue-box").classList.add("active");
+      document.getElementById("speaker-name").textContent =
+        "🎯 MOMENTO DA VERDADE";
+      document.getElementById("dialogue-text").textContent =
+        "Você coletou pistas suficientes. Quem é o assassino?";
+
+      const choicesDiv = document.getElementById("dialogue-choices");
+      choicesDiv.innerHTML = "";
+      caseData.suspects.forEach((s) => {
+        const btn = document.createElement("button");
+        btn.className = "choice-button";
+        btn.textContent = "🔍 Acusar " + s.name;
+        btn.onclick = () => endCase(s.correct);
+        choicesDiv.appendChild(btn);
+      });
+    }
+
+    function endCase(correct) {
+      gameState.finished = true;
+      saveGame();
+      closeDialogue();
+
+      const screen = document.getElementById("case-end-screen");
+      const title = document.getElementById("case-end-title");
+      const msg = document.getElementById("case-end-message");
+
+      if (correct) {
+        const extra = 500;
+        gameState.score += extra;
+        saveGame();
+        title.textContent = "🎉 CASO RESOLVIDO! 🎉";
+        msg.innerHTML = `
+          <strong>PARABÉNS, DETETIVE!</strong><br><br>
+          Você descobriu que Roberto era o assassino.<br><br>
+          <strong>Solução:</strong><br>${caseData.solution}<br><br>
+          Pontos bônus: +${extra}<br>
+          Pontuação final: ${gameState.score}
+        `;
+      } else {
+        title.textContent = "❌ VOCÊ ERROU O CULPADO";
+        msg.innerHTML = `
+          Você acusou a pessoa errada.<br><br>
+          <strong>Solução correta:</strong><br>${caseData.solution}<br><br>
+          Tente novamente e preste mais atenção nas pistas.
+        `;
+      }
+      screen.style.display = "flex";
+    }
+  </script>
+</body>
+</html>
